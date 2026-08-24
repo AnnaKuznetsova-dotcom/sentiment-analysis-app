@@ -1,33 +1,43 @@
-import streamlit as st 
-import joblib 
-import numpy as np 
+import streamlit as st
+import joblib
+import numpy as np
 import pandas as pd
-
-model = None
-vectorizer = None
-
-@st.cache_resource(show_spinner=False)
-def load_model_data():
-    model = open('best_model.pkl', 'rb') # Убрали ./
-    model = joblib.load(model)
-    vectorizer = open('vectorizer.pkl', 'rb') # Убрали ./
-    vectorizer = joblib.load(vectorizer)
-    return model, vectorizer
 
 markup = {0: 'Негативная', 1: 'Нейтральная', 2: 'Позитивная'}
 
-st.title("Анализ тональности текста")
-text_imput = st.text_input('Введите фразу для семантического анализа', '')
+# Функция загружает модель ТОЛЬКО один раз при старте или изменении файлов .pkl
+@st.cache_resource(show_spinner=False)
+def load_model_data():
+    model_file = open('best_model.pkl', 'rb')
+    model = joblib.load(model_file)
+    
+    vectorizer_file = open('vectorizer.pkl', 'rb')
+    vectorizer = joblib.load(vectorizer_file)
+    
+    return model, vectorizer
 
-if len(text_imput) > 0:
-    st.write('### Введенный текст:')
-    st.write(text_imput)
-    
-    # Загрузка моделей происходит один раз благодаря декоратору выше
-    model, vectorizer = load_model_data()
-    
-    vectorized = vectorizer.transform(np.array([text_imput]))
-    prediction = model.predict(vectorized)[0]
-    
-    st.write('### Предсказанная семантическая окраска текста:')
-    st.success(markup[prediction]) # Используем красивую плашку success
+st.title("Анализ тональности текста")
+st.caption("Модель определяет окраску введенной фразы: негативная, нейтральная или позитивная.")
+
+text_imput = st.text_input('Введите фразу для семантического анализа', '', placeholder="Например: Мне очень понравился этот сервис")
+
+if text_imput and len(text_imput.strip()) > 0:
+    try:
+        st.write('**Введенный текст:**')
+        st.write(f'"{text_imput}"')
+        
+        # Загрузка происходит здесь. Если кэш жив, декоратор вернет данные мгновенно.
+        model, vectorizer = load_model_data()
+        
+        # Преобразование текста в числа
+        vectorized = vectorizer.transform(np.array([text_imput]))
+        
+        # Предсказание
+        prediction = model.predict(vectorized)[0]
+        
+        # Вывод результата
+        st.write('**Предсказанная семантическая окраска текста:**')
+        st.success(markup[prediction])
+        
+    except Exception as e:
+        st.error(f"Произошла ошибка при обработке данных: {e}")
